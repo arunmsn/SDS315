@@ -333,7 +333,7 @@ boot_dist <- do(10000) * (
   resample() |> 
   group_by(adwords_pause) |> 
   summarize(mean_rev_ratio = mean(rev_ratio, na.rm = TRUE)) |> 
-  summarize(diffmean = mean_rev_ratio[adwords_pause == 0] - mean_rev_ratio[adwords_pause == 1])
+  summarize(diffmean = mean_rev_ratio[adwords_pause == 1] - mean_rev_ratio[adwords_pause == 0])
 )
 ```  
   
@@ -356,4 +356,4 @@ Here, we can see the distribution of the differences in mean rev_ratios between 
 
 ### 4 - Conclusion  
 
-As we the saw above, the 95% confidence interval has a range of ~`0.013` to ~`0.091`. This shows that the differences in the rev_ratios between the paid search paused and the paid search still enabled was positive for 95% of the distribution (i.e. the confidence interval never included negative values), and thus a majority of the results actually showed that turning off the paid search led to an increase in revenue by a slight margin. For the stakeholders who would want to enable a paid search (i.e. the ad for the product would be sponsored), this data actually shows that for larger companies like `eBay`, it might not actually be necessary for the ad to be paid for. I am 95% confident that the paid search feature for eBay products (and other larger companies) can be turned off. 
+As we the saw above, the 95% confidence interval has a range of ~`-0.013` to ~`-0.091`. This shows that the differences in the rev_ratios between the paid search paused and the paid search still enabled was negative for 95% of the distribution (i.e. the confidence interval never included positive values), and thus a majority of the results actually showed that turning on the paid search led to an increase in revenue by a slight margin. For the stakeholders who would want to enable a paid search (i.e. the ad for the product would be sponsored), this data actually shows that even for larger companies like `eBay`, paid ads still bring in higher revenue. I am 95% confident that the paid search feature for eBay products (and other larger companies) will bring in the larger income. 
