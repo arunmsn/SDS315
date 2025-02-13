@@ -352,7 +352,7 @@ ci_upper <- quantile(boot_dist$diffmean, 0.975)
 cat("95% Confidence Interval:", ci_lower, "to", ci_upper, "\n")
 ```  
   
-Here, we can see the distribution of the differences in mean rev_ratios between the DMAs without paid search and the DMAs with paid search. The values in the 95% confidence interval shows a range of ~`0.013` to ~`0.091`. 
+Here, we can see the distribution of the differences in mean rev_ratios between the DMAs without paid search and the DMAs with paid search. The values in the 95% confidence interval shows a range of ~`-0.013` to ~`-0.091`. 
 
 ### 4 - Conclusion  
 
