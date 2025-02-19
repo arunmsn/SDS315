@@ -1,0 +1,202 @@
+---
+title: "Homework 4"
+author: "Arun Mahadevan Sathia Narayanan"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+*__GitHub Link__*:  
+[To GitHub](https://github.com/arunmsn/SDS315/tree/main/Week_06/Homework_4)
+
+*__GitHub Link (Text Format)__*:  
+https://github.com/arunmsn/SDS315/tree/main/Week_06/Homework_4
+
+\newpage  
+```{r echo = FALSE, message = FALSE}
+library(tidyverse)
+library(ggplot2)
+library(mosaic)
+```
+  
+# Problem 1 - Iron Bank  
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+total_trades <- 2021
+baseline_prob <- 0.024
+
+# for getting the simulated data, I am using rbinom here, which takes the 
+# number of samples to generate, the number of trials per sample, and the probability of success
+# doing this 100000 times gets us the bootstrap distribution of the varying samples
+# doing sum here allows for getting the total count out of the 100000 for those that would be flagged
+simulated_data_trades <- do(100000) * {
+  sum(rbinom(total_trades, 1, baseline_prob))
+}
+
+colnames(simulated_data_trades) <- c("flagged_trades_sim")
+
+p_value <- mean(simulated_data_trades$flagged_trades_sim >= 70)
+
+ggplot(simulated_data_trades, aes(x = flagged_trades_sim)) +
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black") +
+  geom_vline(xintercept = 70, color = "orange", linetype = "dashed", linewidth = 1.2) +
+  labs(title = "Distribution of Flagged Trades Under Null Hypothesis",
+       x = "Number of Flagged Trades",
+       y = "Number of Trials") +
+  theme_minimal()
+
+cat("P-value:", p_value, "\n")
+```  
+  
+Null Hypothesis: the flagged trades at Iron Bank follow the usual 2.4% flagging rate.  
+Test Statistic: 70 (the observed value of flagged trades)  
+The above distribution was made from 100,000 Monte Carlo Bootstrap Trials. The vertical line is where 70 flagged trials are. As seen from the result above, the p-value (~ `0.002`) is way less than the statistically significant value of p = 0.05 (AKA the flagging rate here is higher than the expected 2.4% (~ 48 flags)), suggesting that the flagged trades occur at a significantly higher rate than expected by chance alone.  
+  
+\newpage
+# Problem 2 - Health Inspections  
+```{r echo = FALSE, message = FALSE}
+total_inspect <- 1500
+baseline_prob <- 0.03
+
+simulated_data_inspects <- do(100000) * {
+  sum(rbinom(total_inspect, 1, baseline_prob))
+}
+
+colnames(simulated_data_inspects) <- c("violations")
+
+p_value <- mean(simulated_data_inspects$violations >= 50)
+
+ggplot(simulated_data_inspects, aes(x = violations)) +
+  geom_histogram(binwidth = 1, fill = "purple", color = "black") +
+  geom_vline(xintercept = 50, color = "orange", linetype = "dashed", linewidth = 1.2) +
+  labs(title = "Distribution of Health Code Violations Under Null Hypothesis",
+       x = "Number of Health Code Violations",
+       y = "Number of Trials") +
+  theme_minimal()
+
+cat("P-value:", p_value, "\n")
+```  
+  
+Null Hypothesis: the health code violations follow the usual 3% violation rates.  
+Test Statistic: 50 (the observed value of health code violations)  
+The above distribution was made from 100,000 Monte Carlo Bootstrap Trials. The vertical line is where 50 health code violations are. As seen from the result above, the p-value (~ `0.24`) is more than the statistically significant value of p = 0.05 (which indicates that the trials were consistent with the null hypothesis), meaning there is no strong evidence of an unusually high rate of health code violations. Also, when doing a count comparison, 3% of 1500 is 45, and having 50 violations is not statistically significant in comparison.  
+  
+\newpage  
+# Problem 3 - Evaluating Jury Selection for Bias  
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+observed <- c(85, 56, 59, 27, 13)
+expected_proportions <- c(0.30, 0.25, 0.20, 0.15, 0.10)
+total_jurors <- 12 * 20 # given total # of jurors per trial is 12
+
+expected <- expected_proportions * total_jurors
+# getting the individual counts, expected is 72, 60, 48, 36, 24
+chi_sq_test <- ((85-72)**2)/72 + ((56-60)**2)/60 + ((59-48)**2)/48 + ((27-36)**2)/36 + ((13-24)**2)/24
+
+jury_table <- data.frame(
+  Group = c("Group 1", "Group 2", "Group 3", "Group 4", "Group 5"),
+  Observed = observed,
+  Expected = expected
+)
+print(jury_table)
+
+jury_data <- data.frame(
+  Group = factor(c("Group 1", "Group 2", "Group 3", "Group 4", "Group 5")),
+  Count = c(observed, expected),
+  Type = rep(c("Observed", "Expected"), each = 5)
+)
+
+ggplot(jury_data, aes(x = Group, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Observed vs Expected Jury Counts",
+       x = "Demographic Group",
+       y = "Count") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Observed" = "blue", "Expected" = "pink"))
+
+simulated_T <- do(100000) * {
+  simulated_sample <- rmultinom(1, total_jurors, expected_proportions) 
+  # multinomial distribution rather than binomial distribution, as there now 5 options, not 2
+  sum((simulated_sample - expected)^2 / expected)
+}
+
+colnames(simulated_T) <- c("result")
+p_value <- mean(simulated_T$result >= chi_sq_test)
+
+cat("Chi-Squared Test:", chi_sq_test, "\n")
+cat("Degrees of Freedom:", 5-1, "\n")
+cat("p-value:", p_value)
+```  
+  
+Null Hypothesis (H0): The jurors on the panel follow the same distribution as the county’s eligible jury pool, meaning the judge’s selection process does not systematically alter group representation.  
+Test Statistic (T): Using the Chi-Squared Test, we got the observed chi-squared value to be `12.426`.  
+P(T | H0): This is a p-value calculation. Using a bootstrap sample 100,000 times, I was able to produce a distribution of chi-squared values. With the distribution, it was just a simple comparison to what proportion of the distribution was greater than or equal to the observed chi-squared statistic, and ended up with a p-value ~`0.014`. This p-value is less than p = 0.05, which shows that we should reject the null hypothesis. This shows that the judge's selection failing to alter group representation is not due to chance alone.   
+  
+\newpage  
+# Problem 4 - LLM Watermarking  
+# 4 - Part A
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+library(stringr)
+
+sentences <- readLines("brown_sentences.txt")
+
+letter_freqs <- read.csv("letter_frequencies.csv", header = TRUE)
+english_freq <- setNames(letter_freqs$Probability, letter_freqs$Letter)
+
+process_text <- function(sentence) {
+  cleaned_text <- str_extract_all(toupper(sentence), "[A-Z]")[[1]]
+  letter_counts <- table(cleaned_text)
+  all_letters <- setNames(rep(0, 26), LETTERS)
+  all_letters[names(letter_counts)] <- letter_counts
+  return(as.numeric(all_letters))
+}
+
+compute_chisq <- function(sentence) {
+  observed_counts <- process_text(sentence)
+  sentence_length <- sum(observed_counts)
+  expected_counts <- sentence_length * english_freq
+  sum((observed_counts - expected_counts)^2 / expected_counts)
+}
+
+chisq_values <- sapply(sentences, compute_chisq)
+
+ggplot(data.frame(chi_sq = chisq_values), aes(x = chi_sq)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
+  labs(title = "Null Distribution of Chi-Squared Statistics",
+       x = "Chi-Squared Statistic",
+       y = "Count") +
+  theme_minimal()
+```  
+  
+From the above distribution, we can see that the most common Chi-Squared value is 20 (each bar has a width of 5).  
+  
+# 4 - Part B  
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+test_sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+test_chisq_values <- sapply(test_sentences, compute_chisq)
+
+null_distribution <- chisq_values
+p_values <- sapply(test_chisq_values, function(x) mean(null_distribution >= x))
+
+p_value_table <- tibble(
+  Sentence = paste(str_sub(test_sentences, 1, 20), "..."),
+  p_value = round(p_values, 3)
+)
+
+p_value_table <- p_value_table |>
+  arrange(p_value)
+
+print(as.data.frame(p_value_table))
+```  
+  
+The sentence watermarked by an LLM is the following:  
+`"Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland."`  
+This is due to this sentence scoring a p-value of `0.009`, which is very low compared to the base p = 0.05, indicating that this was the work of an LLM and not a human.
