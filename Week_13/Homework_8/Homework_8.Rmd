@@ -1,0 +1,123 @@
+---
+title: "Homework 8"
+author: "Arun Mahadevan Sathia Narayanan (as235872)"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+*__GitHub Link__*:  
+[To GitHub](https://github.com/arunmsn/SDS315/tree/main/Week_13/Homework_8)
+
+*__GitHub Link (Text Format)__*:  
+https://github.com/arunmsn/SDS315/tree/main/Week_13/Homework_8
+
+\newpage
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(ggplot2)
+library(mosaic)
+library(MatchIt)
+library(dplyr)
+
+creatinine = read.csv("creatinine.csv")
+covid = read.csv("covid.csv")
+milk = read.csv("milk.csv")
+```
+
+# Problem 1 - Regression Warm Up  
+# 1 - Part A  
+```{r echo = FALSE}
+lm_creatinine = lm(creatclear ~ age, data = creatinine)
+a = coef(lm_creatinine) # returns the intercept and correlation coefficient (slope)
+intercept = as.numeric(a[1])
+slope = as.numeric(a[2])
+paste("Expected creatinine clearance rate for a 55 year old:", round(intercept + slope*55, 2), "mL/minute")
+```  
+  
+The way I determined that the expected creatinine clearance rate for a 55 year old should be around 113.7 is by performing a linear regression on the given data, relating the `creatclear` column with the `age` column, and retrieving the coefficient values from the model. I then put the coefficient values, `r intercept` for the intercept and `r slope` for the slope, multiplying the slope by 55 and adding the intercept (in y = mx + b format) to get the expected creatinine clearance rate.  
+
+# 1 - Part B  
+```{r echo = FALSE}
+paste("Creatinine Clearance Rate change with Age:", round(slope, 2), "mL/minute/year")
+```  
+  
+The way I determined how the clearance rate changes with age is by simply getting the slope, as determined in the Part A.    
+  
+# 1 - Part C  
+```{r echo = FALSE}
+expected_40 = intercept + slope*40
+diff_40 = 135 - expected_40
+
+expected_60 = intercept + slope*60
+diff_60 = 112 - expected_60
+
+paste("Difference for 40 year old:", round(diff_40, 2), "mL/minute")
+paste("Difference for 60 year old:", round(diff_60, 2), "mL/minute")
+```  
+  
+The one with the higher difference in reality versus expected values is the 40 year old, suggesting the 40 year old is relatively healthier than the 60 year old. The way I calculated the values is by using the prediction model's intercept and correlation coefficient (similar to Part A), and predicted the creatinine clearance rate for the 40 year old and the 60 year old. Using the given values of 135 and 112 for the 40 and 60 year old, respectively, I was able to get the difference between the actual and expected value for each age. The difference for the 40 year old turned out to be 11.98 and the difference for the 60 year old turned out to be 1.38, which indicates the 40 year old is healthier.
+  
+\newpage
+# Problem 2 - Modeling Disease Growth  
+# 2 - Part 1  
+```{r echo = FALSE}
+set.seed(42)
+italy_data = covid |> filter(country == "Italy")
+boot_italy = do(1000)*lm(log(deaths) ~ days_since_first_death, data = resample(italy_data))
+confidence_italy = confint(boot_italy)
+
+print("Italy Data")
+paste("The 95% confidence interval for the growth rate is:")
+paste("Lower:", round(confidence_italy[2,2], 3), "deaths/day")
+paste("Upper:", round(confidence_italy[2,3], 3), "deaths/day")
+paste("The 95% confidence interval for the doubling time (using rule of 70) is:")
+paste("Lower:", round(70/(confidence_italy[2,3]*100), 1), "days")
+paste("Upper:", round(70/(confidence_italy[2,2]*100), 1), "days")
+```  
+# 2 - Part 2
+```{r echo = FALSE}
+set.seed(42)
+spain_data = covid |> filter(country == "Spain")
+boot_spain = do(1000)*lm(log(deaths) ~ days_since_first_death, data = resample(spain_data))
+confidence_spain = confint(boot_spain)
+
+print("Spain Data")
+paste("The 95% confidence interval for the growth rate is:")
+paste("Lower:", round(confidence_spain[2,2], 3), "deaths/day")
+paste("Upper:", round(confidence_spain[2,3], 3), "deaths/day")
+paste("The 95% confidence interval for the doubling time (using rule of 70) is:")
+paste("Lower:", round(70/(confidence_spain[2,3]*100), 1), "days")
+paste("Upper:", round(70/(confidence_spain[2,2]*100), 1), "days")
+```  
+# 2 - Part 3  
+```{r echo = FALSE}
+ggplot() + 
+  geom_line(aes(x = spain_data$days_since_first_death, y = spain_data$deaths, color = "Spain")) + 
+  geom_line(aes(x = italy_data$days_since_first_death, y = italy_data$deaths, color = "Italy")) +
+  labs(
+    x = "Days Since First Death",
+    y = "Number of Deaths",
+    title = "Comparison of Deaths in Spain and Italy during Covid",
+    color = "Country"
+  )
+```  
+  
+\newpage  
+# Problem 3 - Price Elasticity of Demand  
+```{r echo = FALSE}
+# trying to solve for beta (b), elasticity of demand
+# using Q = KP^b -->
+# log(Q) = b*log(KP) -->
+# b = log(Q)/log(KP) = slope of graph
+# K constant, Q quantity demanded, P price
+# set x to be Price, set y to be Quantity
+set.seed(42)
+boot_milk = do(1000)*lm(log(sales) ~ log(price), data = resample(milk))
+confidence_milk = confint(boot_milk)
+print("Milk Price Elasticity of Demand")
+paste("The 95% confidence interval for the Price Elasticity of Demand for Milk is:")
+paste("Lower:", round(confidence_milk[2,2], 3), "%")
+paste("Upper:", round(confidence_milk[2,3], 3), "%")
+paste("Estimate:", round(confidence_milk[2,6], 3), "%")
+```  
+  
+The estimated value, using power law, for the Price Elasticity of Demand (PED) for Milk is -1.619, and the 95% confidence interval for the PED for Milk is -1.775 to -1.458. Since PED is a ratio of percentage change in quantity and percentage change in price, and the absolute values of the PED values are all greater than 1, this means that the product, which in this case is milk, is *elastic*. This means a 1% increase in price leads to more than a 1% decrease in sales, which can be observed from the -1.775% and the -1.458% both being a greater loss than -1%. I estimated the elasticity by using a power law model (linear regression with both axes on log scale), setting the x to be log(price) and the y to be log(sales). Getting the correlation coefficient (as similarly done in the previous problems) gave the PED, which was -1.619. 
