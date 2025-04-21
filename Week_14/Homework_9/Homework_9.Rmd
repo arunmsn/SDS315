@@ -1,0 +1,183 @@
+---
+title: "Homework 9"
+author: "Arun Mahadevan Sathia Narayanan (as235872)"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+*__GitHub Link__*:  
+[To GitHub](https://github.com/arunmsn/SDS315/tree/main/Week_14/Homework_9)
+
+*__GitHub Link (Text Format)__*:  
+https://github.com/arunmsn/SDS315/tree/main/Week_14/Homework_9
+
+\newpage
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+# install.packages("ggplot2")
+library(ggplot2)
+library(mosaic)
+library(MatchIt)
+library(dplyr)
+library(stringr)
+# install.packages("moderndive")
+library(moderndive)
+# install.packages("effectsize")
+library(effectsize)
+
+solder = read.csv("solder.csv")
+grocery = read.csv("groceries.csv")
+```  
+  
+# Problem 1 - Manufacturing Flaws in Circuit Boards  
+# 1 - Part A  
+```{r echo = FALSE, out.height="45%"}
+ggplot(solder) + geom_col(aes(x = Opening, y = skips)) + labs(x = "Opening Size", 
+                                                              y = "Number of Skips", 
+                                                              title = "Relationship between Opening size and Number of Skips", 
+                                                              caption = "Above, we can see that the larger the smaller the opening size, the more number of skips observed.")
+```
+```{r echo = FALSE, out.height="45%"}
+ggplot(solder) + geom_col(aes(x = Solder, y = skips)) + labs(x = "Solder Size", 
+                                                             y = "Number of Skips", 
+                                                             title = "Relationship between Solder size and Number of Skips",
+                                                             caption = "Above, we can see that the thinner solder sizes have a higher number of skips compared to the thicker solder sizes.")
+```  
+  
+# 1 - Part B  
+```{r echo = FALSE}
+set.seed(42)
+boot_skips = do(1000)*lm(skips ~ Opening + Solder + Opening:Solder, data = resample(solder))
+conf = confint(boot_skips) |>
+  select(name, estimate, lower, upper, level) |>
+  filter(!name %in% c("sigma", "r.squared", "F"))
+conf
+```  
+  
+# 1 - Part C
+
+- The Intercept is the baseline effect of OpeningL and SolderThick, and is `r round(conf[1,2], 2)` skips.  
+- The main, offset effect for the OpeningM variable is `r round(conf[2,2], 2)` skips.  
+- The main, offset effect for the OpeningS variable is `r round(conf[3,2], 2)` skips.  
+- The main, offset effect for the SolderThin variable is `r round(conf[4,2], 2)` skips.  
+- The interaction effect for OpeningM and SolderThin is `r round(conf[5,2], 2)` skips.  
+- The interaction effect for OpeningS and SolderThin is `r round(conf[6,2], 2)` skips.
+  
+# 1 - Part D
+
+To minimize the number of skips, I would use a Medium Opening (OpeningM) and Thin Solder size (SolderThin). This is because the minimum number of skips occur when having a medium opening and a thin solder, getting an estimated number of skips of `r conf[5,2]`.
+  
+\newpage  
+# Problem 2 - Grocery Store Prices  
+# 2 - Part A  
+```{r echo = FALSE}
+grocery |>
+  group_by(Store) |>
+  summarize(mean_price = mean(Price, na.rm = TRUE)) |>
+  ggplot() + 
+    geom_point(aes(x = Store, y = mean_price)) + 
+    labs(x = "Store Name",
+         y = "Average Price",
+         title = "Average Price per Store",
+         caption = "A comparison of the average Price of all products, grouped by Store") + 
+    coord_flip()
+```  
+
+# 2 - Part B  
+```{r echo = FALSE}
+grocery |>
+  group_by(Product) |>
+  summarize(count = n()) |>
+  ggplot() + 
+    geom_col(aes(x = Product, y = count)) + 
+    coord_flip()
+
+```  
+  
+# 2 - Part C
+```{r echo = FALSE}
+set.seed(42)
+store_model_boot = do(1000)*lm(Price ~ Product + Type, data = resample(grocery)) 
+
+store_model_boot_clean = store_model_boot |>
+  filter(if_all(everything(), ~ !is.na(.)))
+
+store_type_conf = confint(store_model_boot_clean)
+```  
+  
+Compared with ordinary grocery stores (like Albertsons, HEB, or Krogers), convenience stores charge somewhere between `r round(store_type_conf[1,2], 2)` and `r round(store_type_conf[1,3], 2)` dollars more for the same product.  
+  
+# 2 - Part D
+```{r echo = FALSE}
+store_lowest = lm(Price ~ Product + Store, data = grocery) 
+only_stores = confint(store_lowest) |>
+  as.data.frame() |>
+  mutate(term = rownames(confint(store_lowest))) |>
+  arrange(`2.5 %`) |>
+  filter(str_detect(term, "Store")) |>
+  mutate(term = str_replace(term, "Store", ""))
+# another method:
+# coef(store_lowest) |> 
+#   as.data.frame() |> 
+#   mutate(term = rownames(confint(store_lowest))) |> 
+#   filter(str_detect(term, "Store")) |> 
+#   mutate(term = str_replace(term, "Store", ""))
+```  
+  
+The two stores that charge the lowest price when comparing the same product is `r only_stores[1,3]` and `r only_stores[2,3]`. The two stores that charge the highest price when comparing the same product are `r tail(only_stores)[5,3]` and `r tail(only_stores)[6,3]`.    
+  
+\newpage
+# 2 - Part E
+```{r echo = FALSE}
+HEB_CM = only_stores |>
+  filter(str_detect(term, "H-E-B|Central Market"))
+
+others = only_stores |>
+  filter(str_detect(term, "Kroger|Fiesta|Target"))
+
+# only_stores |> filter(str_detect(term, "Kroger|Fiesta|H-E-B|Central Market|Target"))
+```  
+  
+I am using the confidence intervals for the comparisons here. Comparing the values between H-E-B and Central Market (as seen above), the 2.5% values have a difference of `r round(HEB_CM[2,1] - HEB_CM[1,1], 2)*100` cents and the 97.5% values have a difference of `r round(HEB_CM[2,2] - HEB_CM[1,2], 2)*100` cents. While the lower edges (2.5%) are closer together the higher edges (97.5%) are further apart, indicating that **Central Market charges more than H-E-B for the same product**. But let's not immediately determine that answer -- we should compare with other stores:  
+  
+Comparing `r others[1,3]` and `r HEB_CM[1,3]`, we get a difference of `r round(others[1,1] - HEB_CM[1,1], 2)*100` for the 2.5% and a difference of `r round(others[1,2] - HEB_CM[1,2], 2)*100` for the 97.5%.  
+Comparing `r others[3,3]` and `r HEB_CM[1,3]`, we get a difference of `r round(others[3,1] - HEB_CM[1,1], 2)*100` for the 2.5% and a difference of `r round(others[3,2] - HEB_CM[1,2], 2)*100` for the 97.5%.  
+Comparing `r others[2,3]` and `r HEB_CM[1,3]`, we get a difference of `r round(others[2,1] - HEB_CM[1,1], 2)*100` for the 2.5% and a difference of `r round(others[2,2] - HEB_CM[1,2], 2)*100` for the 97.5%.  
+Comparing `r others[4,3]` and `r HEB_CM[1,3]`, we get a difference of `r round(others[4,1] - HEB_CM[1,1], 2)*100` for the 2.5% and a difference of `r round(others[4,2] - HEB_CM[1,2], 2)*100` for the 97.5%.  
+Performing the comparisons, having the other stores being around H-E-B and Central Market in terms of the percentages, we can tell that the range of the difference between Central Market and H-E-B is not as large, giving us the result that **Central Market charges a similar amount to HEB for the same product**.
+  
+# 2 - Part F
+```{r echo = FALSE}
+grocery = grocery |>
+  mutate("Income10K" = round(Income/10000, 2))
+
+income_conf = lm(Price ~ Product + Income10K, data = grocery)
+coef = coef(income_conf)
+regression_table = get_regression_table(income_conf, conf.level = 0.95, digits = 2)
+standard = standardize_parameters(income_conf)
+```  
+  
+- The poorer ZIP codes pay more for the same product, on average, compared to the richer ZIP codes. Given the slope of -0.01 for the Income10K variable (from the list of coefficients) and the smaller number of richer ZIP codes in the dataset (through manual analysis, though can be done using a filter according to a threshold), the slope is still negative even when the higher incomes will disrupt the slope, which indicates the trend follows that prices are higher in the lower income ZIP codes and prices are lower in the higher income ZIP codes.  
+- The estimated size of the effect of Income10K on Price: A one-standard deviation increase in the income of a ZIP code seems to be associated with a -0.03 standard-deviation change in the price that consumers in that ZIP code expect to pay for the same product (taken from using standardize_parameters).
+  
+\newpage  
+# Problem 3 - Redlining  
+# 3 - Statement A - ZIP codes with a higher percentage of minority residents tend to have more FAIR policies per 100 housing units.  
+  
+This is True; using Figure A1 and the simple linear regression model fitted to the points, we can see that the slope of the regression line is positive (0.51), indicating that with a higher % minority, the FAIR policies per 100 housing units increases.    
+
+# 3 - Statement B - The evidence suggests an interaction effect between minority percentage and the age of the housing stock in the way that these two variables are related to the number of FAIR policies in a ZIP code.  
+  
+This is Undecidable; even when using the simple linear regression fit to minority and age, while we can see that their relationship is not very strong, there is no information provided that can prove there is an interaction, as there is no explicit interaction terms included in the models.    
+
+# 3 - Statement C - The relationship between minority percentage and number of FAIR policies per 100 housing units is stronger in high-fire-risk ZIP codes than in low-fire-risk ZIP codes.  
+  
+This is True; looking at Figure C1, we can see that the slope of the line for High Fire Risk is slightly larger than the slope of the line for the Low Fire Risk, and even if that is only barely visible, when using the linear model fit with minority, fire_risk, and their interaction (minority:fire_risk), the R-squared coefficient is positive and more than 0.5 (giving us 0.59), showing that there is a stronger relationship between minority percentage and the number of FAIR policies for the high-fire-rizk ZIP codes compared to the low-fire-risk ZIP codes, even if barely.  
+
+# 3 - Statement D - Even without controlling for any other variables, income “explains away” all the association between minority percentage and FAIR policy uptake.  
+  
+This is False; comparing the models model_D1 and model_D2, we can see how the coefficient for minority changes; when using the model and not controlling for any of the variables, minority has a coefficient of 0.014 and a p-value of 0 (which makes it statistically significant). However, when using the model and controlling for income, minority still has a coefficient of 0.01 and a p-value of 0.002 (which means it is still statistically significant). This means, even after controlling for income (and no other variable), it cannot "explain away" all the association between minority percentage and FAIR policy uptake, though some of it can be using the fact that the coefficient for minority dropped a bit (partial confounding). 
+\newpage  
+  
+# 3 - Statement E - Minority percentage and number of FAIR policies are still associated at the ZIP code level, even after controlling for income, fire risk, and housing age.  
+  
+This is True; using model_E (with multiple predictors), we can see that the R-squared coefficient for the relationship between the number of FAIR policies and minority percentage even after controlling for income, fire-risk, and housing age is still 0.66, which means the two variables are still associated after the controlling of other variables. 
